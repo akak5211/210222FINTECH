@@ -4,6 +4,9 @@ const app = express();
 const request = require('request');
 var jwt = require('jsonwebtoken');
 var auth = require('./lib/auth');
+var moment = require('moment');
+
+var companyId = "M202111595U";
 
 //json 타입에 데이터 전송을 허용한다
 app.use(express.json());
@@ -23,10 +26,24 @@ app.get('/', function (req, res) {
 })
 
 app.get('/authTest',auth, function (req, res) {
-    res.send('Hello World');
+    res.send('정상적으로 로그인 하셨다면 해당 화면이 보입니다.');
 })
 
+app.get('/main', function(req,res){
+    res.render('main');
+})
 
+app.get('/balance', function(req,res){
+    res.render('balance')
+})
+
+app.get('/qrcode',function(req,res){
+    res.render('qrcode')
+})
+
+app.get('/qrreader',function(req,res){
+    res.render('qrreader')
+})
 
 app.get('/signup', function(req,res){
     res.render('signup');
@@ -153,6 +170,125 @@ app.get('/user', function (req, res) {
     })
 });
   
+app.post('/list', auth, function(req, res){
+    var user = req.decoded;
+    console.log(user);
+    var sql = "SELECT * FROM user WHERE id = ?";
+    connection.query(sql,[user.userId], function(err, result){
+        if(err) throw err;
+        else {
+            var dbUserData = result[0];
+            console.log(dbUserData);
+            var option = {
+                method : "GET",
+                url : "https://testapi.openbanking.or.kr/v2.0/user/me",
+                headers : {
+                    Authorization : "Bearer " + dbUserData.accesstoken
+                },
+                qs : {
+                    user_seq_no : dbUserData.userseqno
+                }
+            }
+            request(option, function(err, response, body){
+                if(err){
+                    console.error(err);
+                    throw err;
+                }
+                else {
+                    var listRequestResult = JSON.parse(body);
+                    res.json(listRequestResult)
+                }
+            })        
+        }
+    })
+})
+
+app.post('/balance', auth, function(req, res){
+    //사용자 정보 조회
+    //사용자 정보를 바탕으로 request (잔액조회 api) 요청 작성하기
+    var user = req.decoded;
+    var finusernum = req.body.fin_use_num;
+    var countnum = Math.floor(Math.random() * 1000000000) + 1;
+    var transId = companyId + countnum;  
+    var transdtime = moment(new Date()).format('YYYYMMDDhhmmss');
+    console.log(transdtime);
+    var sql = "SELECT * FROM user WHERE id = ?";
+    connection.query(sql,[user.userId], function(err, result){
+        if(err) throw err;
+        else {
+            var dbUserData = result[0];
+            console.log(dbUserData);
+            var option = {
+                method : "GET",
+                url : "https://testapi.openbanking.or.kr/v2.0/account/balance/fin_num",
+                headers : {
+                    Authorization : "Bearer " + dbUserData.accesstoken
+                },
+                qs : {
+                    bank_tran_id : transId,
+                    fintech_use_num : finusernum,
+                    tran_dtime : transdtime
+                }
+            }
+            request(option, function(err, response, body){
+                if(err){
+                    console.error(err);
+                    throw err;
+                }
+                else {
+                    var balanceRquestResult = JSON.parse(body);
+                    res.json(balanceRquestResult)
+                }
+            })        
+        }
+    })
+})
+
+app.post('/transactionList', auth, function(req, res){
+    var user = req.decoded;
+    var finusernum = req.body.fin_use_num;
+    var countnum = Math.floor(Math.random() * 1000000000) + 1;
+    var transId = companyId + countnum;  
+    var transdtime = moment(new Date()).format('YYYYMMDDhhmmss');
+    console.log(transdtime);
+    var sql = "SELECT * FROM user WHERE id = ?";
+    connection.query(sql,[user.userId], function(err, result){
+        if(err) throw err;
+        else {
+            var dbUserData = result[0];
+            console.log(dbUserData);
+            var option = {
+                method : "GET",
+                url : "https://testapi.openbanking.or.kr/v2.0/account/transaction_list/fin_num",
+                headers : {
+                    Authorization : "Bearer " + dbUserData.accesstoken
+                },
+                qs : {
+                    bank_tran_id : transId,
+                    fintech_use_num : finusernum,
+                    inquiry_type : 'A',
+                    inquiry_base : 'D',
+                    from_date : '20190101',
+                    to_date : '20190101',
+                    sort_order : 'D',
+                    tran_dtime : transdtime
+                }
+            }
+            request(option, function(err, response, body){
+                if(err){
+                    console.error(err);
+                    throw err;
+                }
+                else {
+                    var transactionListResuult = JSON.parse(body);
+                    res.json(transactionListResuult)
+                }
+            })        
+        }
+    })
+})
+
+
 
 var mysql      = require('mysql');
 var connection = mysql.createConnection({
