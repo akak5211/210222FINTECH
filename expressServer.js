@@ -288,7 +288,58 @@ app.post('/transactionList', auth, function(req, res){
     })
 })
 
-
+app.post('/withdraw', auth, function(req, res){
+    //사용자 출금이체 API 수행하기
+    var user = req.decoded;
+    console.log(req.body);
+    var sql = "SELECT * FROM user WHERE id = ?";
+    var countnum = Math.floor(Math.random() * 1000000000) + 1;
+    var transId = companyId + countnum;  
+    var transdtime = moment(new Date()).format('YYYYMMDDhhmmss');
+    console.log(transdtime);
+    connection.query(sql,[user.userId], function(err, result){
+        if(err) throw err;
+        else {
+            var dbUserData = result[0];
+            console.log(dbUserData);
+            var option = {
+                method : "POST",
+                url : "https://testapi.openbanking.or.kr/v2.0/transfer/withdraw/fin_num",
+                headers : {
+                    Authorization : "Bearer " + dbUserData.accesstoken
+                },
+                json : {
+                    "bank_tran_id" : transId,
+                    "cntr_account_type" : "N",
+                    "cntr_account_num" :"321321321321",
+                    "dps_print_content" :"쇼핑몰환불",
+                    "fintech_use_num" : req.body.fin_use_num,
+                    "wd_print_content" : "오픈뱅킹출금",
+                    "tran_amt" : req.body.amount,
+                    "tran_dtime" : transdtime,
+                    "req_client_name" : "홍길동",
+                    "req_client_fintech_use_num" : req.body.fin_use_num,
+                    "req_client_num" : "HONGGILDONG1234",
+                    "transfer_purpose" : "ST",
+                    "recv_client_name" : "홍길동",
+                    "recv_client_bank_code" : "097",
+                    "recv_client_account_num" : "321321321321"
+                }
+            }
+            request(option, function(err, response, body){
+                if(err){
+                    console.error(err);
+                    throw err;
+                }
+                else {
+                    var transactionListResuult = body;
+                    console.log(transactionListResuult);
+                    res.json(transactionListResuult)
+                }
+            })        
+        }
+    })
+})
 
 var mysql      = require('mysql');
 var connection = mysql.createConnection({
